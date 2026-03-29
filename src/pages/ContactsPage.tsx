@@ -15,21 +15,55 @@ export default function ContactsPage() {
   const [selected, setSelected] = useState<null | typeof CONTACTS[0]>(null);
   const [newSearch, setNewSearch] = useState("");
   const [tab, setTab] = useState<"contacts" | "find">("contacts");
+  const [blocked, setBlocked] = useState<number[]>([]);
+  const [confirmBlock, setConfirmBlock] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  };
 
   const filtered = CONTACTS.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     c.login.toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleBlock = () => {
+    if (!selected) return;
+    setBlocked(prev => [...prev, selected.id]);
+    showToast(`${selected.name} заблокирован`);
+    setConfirmBlock(false);
+    setSelected(null);
+  };
+
+  const handleShare = (contact: typeof CONTACTS[0]) => {
+    const link = `${window.location.origin}/user/${contact.login.slice(1)}`;
+    navigator.clipboard.writeText(link).then(() => showToast("Ссылка скопирована"));
+  };
+
   if (selected) {
+    const isBlocked = blocked.includes(selected.id);
     return (
       <div className="flex flex-col h-full animate-fade-in" style={{ background: 'var(--bg-dark)' }}>
+        {/* Toast */}
+        {toast && (
+          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm animate-fade-in"
+            style={{ background: 'rgba(0,212,255,0.15)', border: '1px solid rgba(0,212,255,0.4)', color: 'var(--neon-blue)', backdropFilter: 'blur(8px)' }}>
+            {toast}
+          </div>
+        )}
+
         <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-surface)' }}>
           <button onClick={() => setSelected(null)} style={{ color: 'var(--neon-blue)' }}>
             <Icon name="ArrowLeft" size={20} />
           </button>
           <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Профиль контакта</span>
+          <button onClick={() => handleShare(selected)} className="ml-auto p-2 rounded-lg neon-glow-btn" title="Копировать ссылку">
+            <Icon name="Share2" size={16} />
+          </button>
         </div>
+
         <div className="flex-1 overflow-y-auto p-6">
           <div className="flex flex-col items-center mb-8">
             <div className="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold mb-4 animate-neon-pulse"
@@ -39,11 +73,16 @@ export default function ContactsPage() {
             <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{selected.name}</h2>
             <p className="text-sm mt-1" style={{ color: 'var(--neon-blue)' }}>{selected.login}</p>
             <div className="flex items-center gap-1.5 mt-2">
-              <span className={selected.online ? "online-dot" : "offline-dot"} style={{ width: 8, height: 8 }} />
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: selected.online ? '#00ff88' : '#ff4466', boxShadow: selected.online ? '0 0 6px #00ff88' : 'none' }} />
               <span className="text-xs" style={{ color: selected.online ? '#00ff88' : 'var(--text-secondary)' }}>
                 {selected.online ? 'В сети' : 'Не в сети'}
               </span>
             </div>
+            {isBlocked && (
+              <div className="mt-2 px-3 py-1 rounded-full text-xs" style={{ background: 'rgba(255,68,102,0.1)', border: '1px solid rgba(255,68,102,0.3)', color: '#ff4466' }}>
+                Заблокирован
+              </div>
+            )}
           </div>
 
           {selected.desc && (
@@ -54,27 +93,54 @@ export default function ContactsPage() {
           )}
 
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <button className="flex flex-col items-center gap-2 p-4 rounded-xl neon-glow-btn">
-              <Icon name="MessageCircle" size={22} />
-              <span className="text-xs font-medium">Написать</span>
-            </button>
-            <button className="flex flex-col items-center gap-2 p-4 rounded-xl neon-glow-btn">
-              <Icon name="Phone" size={22} />
-              <span className="text-xs font-medium">Позвонить</span>
-            </button>
-            <button className="flex flex-col items-center gap-2 p-4 rounded-xl neon-glow-btn">
-              <Icon name="Video" size={22} />
-              <span className="text-xs font-medium">Видеозвонок</span>
-            </button>
-            <button className="flex flex-col items-center gap-2 p-4 rounded-xl neon-glow-btn">
-              <Icon name="Share2" size={22} />
-              <span className="text-xs font-medium">Поделиться</span>
-            </button>
+            {[
+              { icon: "MessageCircle", label: "Написать", action: () => showToast("Открываю чат...") },
+              { icon: "Phone", label: "Позвонить", action: () => showToast("Вызов...") },
+              { icon: "Video", label: "Видеозвонок", action: () => showToast("Видеовызов...") },
+              { icon: "Share2", label: "Поделиться", action: () => handleShare(selected) },
+            ].map(btn => (
+              <button key={btn.label}
+                onClick={btn.action}
+                className="flex flex-col items-center gap-2 p-4 rounded-xl neon-glow-btn">
+                <Icon name={btn.icon as "Phone"} size={22} />
+                <span className="text-xs font-medium">{btn.label}</span>
+              </button>
+            ))}
           </div>
 
-          <button className="w-full p-3 rounded-xl text-sm font-medium" style={{ background: 'rgba(255,68,102,0.1)', border: '1px solid rgba(255,68,102,0.3)', color: '#ff4466' }}>
-            Заблокировать
-          </button>
+          {!isBlocked ? (
+            confirmBlock ? (
+              <div className="p-4 rounded-xl mb-3" style={{ background: 'rgba(255,68,102,0.08)', border: '1px solid rgba(255,68,102,0.25)' }}>
+                <p className="text-sm text-center mb-3" style={{ color: 'var(--text-primary)' }}>
+                  Заблокировать <b>{selected.name}</b>?
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={() => setConfirmBlock(false)}
+                    className="flex-1 py-2 rounded-lg text-sm"
+                    style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.2)', color: 'var(--text-secondary)' }}>
+                    Отмена
+                  </button>
+                  <button onClick={handleBlock}
+                    className="flex-1 py-2 rounded-lg text-sm font-medium"
+                    style={{ background: 'rgba(255,68,102,0.2)', border: '1px solid rgba(255,68,102,0.4)', color: '#ff4466' }}>
+                    Заблокировать
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmBlock(true)}
+                className="w-full p-3 rounded-xl text-sm font-medium"
+                style={{ background: 'rgba(255,68,102,0.1)', border: '1px solid rgba(255,68,102,0.3)', color: '#ff4466' }}>
+                Заблокировать
+              </button>
+            )
+          ) : (
+            <button onClick={() => { setBlocked(prev => prev.filter(id => id !== selected.id)); showToast("Разблокировано"); }}
+              className="w-full p-3 rounded-xl text-sm font-medium"
+              style={{ background: 'rgba(0,255,136,0.08)', border: '1px solid rgba(0,255,136,0.25)', color: '#00ff88' }}>
+              Разблокировать
+            </button>
+          )}
         </div>
       </div>
     );
@@ -82,6 +148,12 @@ export default function ContactsPage() {
 
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--bg-dark)' }}>
+      {toast && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm animate-fade-in"
+          style={{ background: 'rgba(0,212,255,0.15)', border: '1px solid rgba(0,212,255,0.4)', color: 'var(--neon-blue)', backdropFilter: 'blur(8px)' }}>
+          {toast}
+        </div>
+      )}
       <div className="p-4 border-b" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-surface)' }}>
         <h2 className="text-lg font-bold mb-3 neon-text">Контакты</h2>
         <div className="flex gap-2 mb-3">
@@ -124,6 +196,11 @@ export default function ContactsPage() {
                 <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{contact.name}</p>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{contact.login}</p>
               </div>
+              {blocked.includes(contact.id) && (
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,68,102,0.1)', color: '#ff4466' }}>
+                  блок
+                </span>
+              )}
               <Icon name="ChevronRight" size={16} style={{ color: 'var(--text-secondary)' }} />
             </div>
           ))

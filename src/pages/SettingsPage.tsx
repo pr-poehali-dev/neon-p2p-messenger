@@ -17,6 +17,30 @@ export default function SettingsPage() {
   const [hideLastSeen, setHideLastSeen] = useState(false);
   const [p2pMode, setP2pMode] = useState<"nobody" | "contacts" | "all">("contacts");
 
+  // Modals
+  const [modal, setModal] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [secQuestion, setSecQuestion] = useState("Имя первого питомца?");
+  const [secAnswer, setSecAnswer] = useState("");
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  const handlePasswordSave = () => {
+    if (!newPassword || newPassword !== confirmPassword) { showToast("Пароли не совпадают"); return; }
+    setModal(null); setNewPassword(""); setConfirmPassword(""); showToast("Пароль изменён");
+  };
+
+  const handleSecSave = () => {
+    if (!secQuestion || !secAnswer) { showToast("Заполните вопрос и ответ"); return; }
+    setModal(null); setSecAnswer(""); showToast("Контрольный вопрос сохранён");
+  };
+
   const Toggle = ({ val, set }: { val: boolean; set: (v: boolean) => void }) => (
     <button
       onClick={() => set(!val)}
@@ -77,16 +101,85 @@ export default function SettingsPage() {
     {
       title: "Конфиденциальность",
       items: [
-        { label: "Изменить пароль", sub: "Обновить пароль аккаунта", el: <Icon name="ChevronRight" size={16} style={{ color: 'var(--text-secondary)' }} /> },
-        { label: "Контрольный вопрос", sub: "На случай, если забудете пароль", el: <Icon name="ChevronRight" size={16} style={{ color: 'var(--text-secondary)' }} /> },
+        { label: "Изменить пароль", sub: "Обновить пароль аккаунта", el: <Icon name="ChevronRight" size={16} style={{ color: 'var(--text-secondary)' }} />, onClick: () => setModal("password") },
+        { label: "Контрольный вопрос", sub: "На случай, если забудете пароль", el: <Icon name="ChevronRight" size={16} style={{ color: 'var(--text-secondary)' }} />, onClick: () => setModal("security") },
         { label: "Скрыть время последнего визита", sub: "Другие не увидят когда вы были онлайн", el: <Toggle val={hideLastSeen} set={setHideLastSeen} /> },
-        { label: "Удалить аккаунт", sub: "Безвозвратное удаление", el: <Icon name="ChevronRight" size={16} style={{ color: '#ff4466' }} /> },
+        { label: "Удалить аккаунт", sub: "Безвозвратное удаление", el: <Icon name="ChevronRight" size={16} style={{ color: '#ff4466' }} />, onClick: () => setConfirmDelete(true), danger: true },
       ]
     },
   ];
 
   return (
     <div className="flex flex-col h-full overflow-y-auto" style={{ background: 'var(--bg-dark)' }}>
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm animate-fade-in"
+          style={{ background: 'rgba(0,212,255,0.15)', border: '1px solid rgba(0,212,255,0.4)', color: 'var(--neon-blue)', backdropFilter: 'blur(8px)' }}>
+          {toast}
+        </div>
+      )}
+
+      {/* Change password modal */}
+      {modal === "password" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}>
+          <div className="w-full max-w-sm rounded-2xl p-6" style={{ background: 'var(--bg-surface)', border: '1px solid rgba(0,212,255,0.25)' }}>
+            <h3 className="font-bold text-base mb-4 neon-text">Изменить пароль</h3>
+            <div className="space-y-3">
+              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Новый пароль"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+              <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Повторите пароль"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setModal(null)} className="flex-1 py-2.5 rounded-xl text-sm"
+                style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.2)', color: 'var(--text-secondary)' }}>Отмена</button>
+              <button onClick={handlePasswordSave} className="flex-1 py-2.5 rounded-xl text-sm font-semibold neon-glow-btn-solid">Сохранить</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Security question modal */}
+      {modal === "security" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}>
+          <div className="w-full max-w-sm rounded-2xl p-6" style={{ background: 'var(--bg-surface)', border: '1px solid rgba(0,212,255,0.25)' }}>
+            <h3 className="font-bold text-base mb-4 neon-text">Контрольный вопрос</h3>
+            <div className="space-y-3">
+              <input value={secQuestion} onChange={e => setSecQuestion(e.target.value)} placeholder="Ваш вопрос"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+              <input value={secAnswer} onChange={e => setSecAnswer(e.target.value)} placeholder="Ответ"
+                className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }} />
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setModal(null)} className="flex-1 py-2.5 rounded-xl text-sm"
+                style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.2)', color: 'var(--text-secondary)' }}>Отмена</button>
+              <button onClick={handleSecSave} className="flex-1 py-2.5 rounded-xl text-sm font-semibold neon-glow-btn-solid">Сохранить</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm delete */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}>
+          <div className="w-full max-w-sm rounded-2xl p-6" style={{ background: 'var(--bg-surface)', border: '1px solid rgba(255,68,102,0.3)' }}>
+            <h3 className="font-bold text-base mb-2" style={{ color: '#ff4466' }}>Удалить аккаунт?</h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Это действие необратимо. Все данные, чаты и группы будут удалены.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmDelete(false)} className="flex-1 py-2.5 rounded-xl text-sm"
+                style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.2)', color: 'var(--text-secondary)' }}>Отмена</button>
+              <button onClick={() => { setConfirmDelete(false); showToast("Аккаунт удалён"); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: 'rgba(255,68,102,0.2)', border: '1px solid rgba(255,68,102,0.4)', color: '#ff4466' }}>Удалить</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="p-4 border-b" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-surface)' }}>
         <h2 className="text-lg font-bold neon-text">Настройки</h2>
       </div>
@@ -204,16 +297,22 @@ export default function SettingsPage() {
               {sec.title}
             </p>
             <div className="glass-card rounded-xl overflow-hidden">
-              {sec.items.map((item, i) => (
-                <div key={i} className="flex items-center gap-3 p-4 border-b glass-card-hover"
-                  style={{ borderColor: 'rgba(0,212,255,0.06)' }}>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{item.label}</p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{item.sub}</p>
+              {sec.items.map((item, i) => {
+                const clickable = 'onClick' in item && typeof item.onClick === 'function';
+                const isDanger = 'danger' in item && item.danger;
+                return (
+                  <div key={i}
+                    onClick={clickable ? (item as { onClick: () => void }).onClick : undefined}
+                    className={`flex items-center gap-3 p-4 border-b glass-card-hover ${clickable ? 'cursor-pointer' : ''}`}
+                    style={{ borderColor: 'rgba(0,212,255,0.06)' }}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium" style={{ color: isDanger ? '#ff4466' : 'var(--text-primary)' }}>{item.label}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{item.sub}</p>
+                    </div>
+                    {item.el}
                   </div>
-                  {item.el}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}

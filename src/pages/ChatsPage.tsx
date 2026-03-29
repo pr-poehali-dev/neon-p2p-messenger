@@ -16,11 +16,17 @@ const DEMO_MESSAGES = [
   { id: 4, from: "me", text: "P2P мессенджер с видеозвонками. Скоро покажу!", time: "14:22", read: false, views: 0 },
 ];
 
-export default function ChatsPage() {
+interface ChatsPageProps {
+  onStartCall?: (name: string, type: "audio" | "video") => void;
+}
+
+export default function ChatsPage({ onStartCall }: ChatsPageProps) {
   const [activeChat, setActiveChat] = useState<number | null>(null);
   const [messages, setMessages] = useState(DEMO_MESSAGES);
   const [inputText, setInputText] = useState("");
   const [search, setSearch] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [showMenu, setShowMenu] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const chat = DEMO_CHATS.find(c => c.id === activeChat);
@@ -29,11 +35,47 @@ export default function ChatsPage() {
   );
 
   const sendMessage = () => {
-    if (!inputText.trim()) return;
-    setMessages(prev => [...prev, {
-      id: Date.now(), from: "me", text: inputText, time: new Date().toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }), read: false, views: 0
-    }]);
+    const text = inputText.trim();
+    const hasFiles = attachedFiles.length > 0;
+    if (!text && !hasFiles) return;
+
+    const newMsgs = [];
+    if (text) {
+      newMsgs.push({
+        id: Date.now(),
+        from: "me" as const,
+        text,
+        time: new Date().toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }),
+        read: false,
+        views: 0,
+      });
+    }
+    attachedFiles.forEach((f, i) => {
+      newMsgs.push({
+        id: Date.now() + i + 1,
+        from: "me" as const,
+        text: `📎 ${f.name} (${(f.size / 1024).toFixed(1)} КБ)`,
+        time: new Date().toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' }),
+        read: false,
+        views: 0,
+      });
+    });
+
+    setMessages(prev => [...prev, ...newMsgs]);
     setInputText("");
+    setAttachedFiles([]);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length > 0) {
+      setAttachedFiles(prev => [...prev, ...files]);
+    }
+    e.target.value = "";
+  };
+
+  const removeFile = (idx: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
   };
 
   return (
@@ -112,20 +154,52 @@ export default function ChatsPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button className="p-2 rounded-lg neon-glow-btn">
+              <button
+                onClick={() => onStartCall?.(chat.name, 'audio')}
+                className="p-2 rounded-lg neon-glow-btn"
+                title="Голосовой звонок"
+              >
                 <Icon name="Phone" size={18} />
               </button>
-              <button className="p-2 rounded-lg neon-glow-btn">
+              <button
+                onClick={() => onStartCall?.(chat.name, 'video')}
+                className="p-2 rounded-lg neon-glow-btn"
+                title="Видеозвонок"
+              >
                 <Icon name="Video" size={18} />
               </button>
-              <button className="p-2 rounded-lg glass-card-hover rounded-lg" style={{ color: 'var(--text-secondary)' }}>
-                <Icon name="MoreVertical" size={18} />
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowMenu(v => !v)}
+                  className="p-2 rounded-lg glass-card-hover"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <Icon name="MoreVertical" size={18} />
+                </button>
+                {showMenu && (
+                  <div className="absolute right-0 top-10 z-50 rounded-xl py-1 min-w-[160px] animate-fade-in"
+                    style={{ background: 'var(--bg-surface)', border: '1px solid rgba(0,212,255,0.2)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+                    {[
+                      { label: "Поиск в чате", icon: "Search" },
+                      { label: "Очистить чат", icon: "Trash2" },
+                      { label: "Заблокировать", icon: "Ban" },
+                    ].map(item => (
+                      <button key={item.label}
+                        onClick={() => setShowMenu(false)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm glass-card-hover text-left"
+                        style={{ color: item.label === "Заблокировать" ? '#ff4466' : 'var(--text-primary)' }}>
+                        <Icon name={item.icon as "Search"} size={15} />
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 grid-bg">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 grid-bg" onClick={() => setShowMenu(false)}>
             {messages.map(msg => (
               <div key={msg.id} className={`flex ${msg.from === 'me' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
                 <div className={`max-w-xs lg:max-w-md px-4 py-2.5 ${msg.from === 'me' ? 'msg-bubble-out' : 'msg-bubble-in'}`}>
@@ -137,8 +211,8 @@ export default function ChatsPage() {
                         style={{ color: msg.read ? 'var(--neon-blue)' : 'var(--text-secondary)' }} />
                     )}
                     {msg.views > 0 && (
-                      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                        <Icon name="Eye" size={10} className="inline mr-0.5" />{msg.views}
+                      <span className="flex items-center gap-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        <Icon name="Eye" size={10} />{msg.views}
                       </span>
                     )}
                   </div>
@@ -147,22 +221,49 @@ export default function ChatsPage() {
             ))}
           </div>
 
+          {/* Attached files preview */}
+          {attachedFiles.length > 0 && (
+            <div className="px-3 pt-2 flex flex-wrap gap-2 border-t" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-surface)' }}>
+              {attachedFiles.map((f, i) => (
+                <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs"
+                  style={{ background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.25)', color: 'var(--text-primary)' }}>
+                  <Icon name="Paperclip" size={11} style={{ color: 'var(--neon-blue)' }} />
+                  <span className="max-w-[100px] truncate">{f.name}</span>
+                  <button onClick={() => removeFile(i)} style={{ color: '#ff4466' }}>
+                    <Icon name="X" size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Input */}
           <div className="p-3 border-t" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-surface)' }}>
             <div className="flex items-center gap-2">
-              <input type="file" ref={fileRef} className="hidden" multiple />
-              <button onClick={() => fileRef.current?.click()} className="p-2 rounded-lg flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>
+              <input
+                type="file"
+                ref={fileRef}
+                className="hidden"
+                multiple
+                onChange={handleFileChange}
+              />
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="p-2 rounded-lg flex-shrink-0 transition-colors"
+                title="Прикрепить файл"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 <Icon name="Paperclip" size={20} />
               </button>
               <input
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && sendMessage()}
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                 placeholder="Сообщение..."
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
               />
-              <button onClick={sendMessage} className="p-2.5 rounded-xl flex-shrink-0 neon-glow-btn-solid">
+              <button onClick={sendMessage} className="p-2.5 rounded-xl flex-shrink-0 neon-glow-btn-solid" title="Отправить">
                 <Icon name="Send" size={18} />
               </button>
             </div>

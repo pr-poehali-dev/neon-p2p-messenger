@@ -48,7 +48,11 @@ export default function App() {
         <div className="flex items-center gap-1.5">
           <span className="online-dot" />
           <span className="text-xs" style={{ color: '#00ff88' }}>В сети</span>
-          <button className="ml-2 p-1.5 rounded-lg" style={{ color: 'var(--text-secondary)' }}>
+          <button
+            onClick={() => setTab("chats")}
+            className="ml-2 p-1.5 rounded-lg neon-glow-btn"
+            title="Новый чат"
+          >
             <Icon name="Edit" size={16} />
           </button>
         </div>

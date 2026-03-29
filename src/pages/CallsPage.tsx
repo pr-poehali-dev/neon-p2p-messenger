@@ -18,7 +18,7 @@ function CallScreen({ call, callType, onEnd }: {
   const [muted, setMuted] = useState(false);
   const [camOff, setCamOff] = useState(false);
   const [seconds, setSeconds] = useState(0);
-  const iceConfig = useIceServers(true); // relay-only = IP скрыт
+  const iceConfig = useIceServers(true);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -30,19 +30,17 @@ function CallScreen({ call, callType, onEnd }: {
     };
   }, []);
 
-  // Инициализируем RTCPeerConnection с TURN-серверами когда они загружены
   useEffect(() => {
     if (!iceConfig.loaded) return;
     if (pcRef.current) pcRef.current.close();
-
-    const pc = new RTCPeerConnection({
+    pcRef.current = new RTCPeerConnection({
       iceServers: iceConfig.iceServers,
-      iceTransportPolicy: iceConfig.iceTransportPolicy, // "relay" — только через TURN
+      iceTransportPolicy: iceConfig.iceTransportPolicy,
     });
-    pcRef.current = pc;
   }, [iceConfig.loaded, iceConfig.iceServers, iceConfig.iceTransportPolicy]);
 
-  const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  const fmt = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
   const handleEnd = () => {
     if (pcRef.current) pcRef.current.close();
@@ -50,19 +48,20 @@ function CallScreen({ call, callType, onEnd }: {
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center relative grid-bg" style={{ background: 'var(--bg-dark)', height: '100%' }}>
+    <div className="flex-1 flex flex-col items-center justify-center relative grid-bg"
+      style={{ background: 'var(--bg-dark)', height: '100%' }}>
       <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
         <div className="w-96 h-96 rounded-full border-2 animate-ping" style={{ borderColor: 'var(--neon-blue)' }} />
       </div>
 
-      {/* IP Protection badge */}
+      {/* IP protection badge */}
       <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full animate-fade-in"
         style={{
           background: iceConfig.ipProtected ? 'rgba(0,255,136,0.1)' : 'rgba(255,68,102,0.1)',
           border: `1px solid ${iceConfig.ipProtected ? 'rgba(0,255,136,0.4)' : 'rgba(255,68,102,0.4)'}`,
         }}>
         <Icon
-          name={iceConfig.loaded ? (iceConfig.ipProtected ? "ShieldCheck" : "ShieldAlert") : "Shield"}
+          name={!iceConfig.loaded ? "Shield" : iceConfig.ipProtected ? "ShieldCheck" : "ShieldAlert"}
           size={13}
           style={{ color: iceConfig.ipProtected ? '#00ff88' : '#ff4466' }}
         />
@@ -71,7 +70,6 @@ function CallScreen({ call, callType, onEnd }: {
         </span>
       </div>
 
-      {/* TURN relay badge */}
       <div className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full animate-fade-in"
         style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.2)' }}>
         <Icon name="Wifi" size={13} style={{ color: 'var(--neon-blue)' }} />
@@ -94,18 +92,29 @@ function CallScreen({ call, callType, onEnd }: {
         <div className="flex items-center justify-center gap-6">
           <button onClick={() => setMuted(!muted)}
             className="w-14 h-14 rounded-full flex items-center justify-center transition-all"
-            style={{ background: muted ? 'rgba(255,68,102,0.2)' : 'rgba(0,212,255,0.1)', border: `1px solid ${muted ? 'rgba(255,68,102,0.5)' : 'rgba(0,212,255,0.3)'}`, color: muted ? '#ff4466' : 'var(--neon-blue)' }}>
+            title={muted ? "Включить микрофон" : "Выключить микрофон"}
+            style={{
+              background: muted ? 'rgba(255,68,102,0.2)' : 'rgba(0,212,255,0.1)',
+              border: `1px solid ${muted ? 'rgba(255,68,102,0.5)' : 'rgba(0,212,255,0.3)'}`,
+              color: muted ? '#ff4466' : 'var(--neon-blue)',
+            }}>
             <Icon name={muted ? "MicOff" : "Mic"} size={22} />
           </button>
           {callType === 'video' && (
             <button onClick={() => setCamOff(!camOff)}
               className="w-14 h-14 rounded-full flex items-center justify-center transition-all"
-              style={{ background: camOff ? 'rgba(255,68,102,0.2)' : 'rgba(0,212,255,0.1)', border: `1px solid ${camOff ? 'rgba(255,68,102,0.5)' : 'rgba(0,212,255,0.3)'}`, color: camOff ? '#ff4466' : 'var(--neon-blue)' }}>
+              title={camOff ? "Включить камеру" : "Выключить камеру"}
+              style={{
+                background: camOff ? 'rgba(255,68,102,0.2)' : 'rgba(0,212,255,0.1)',
+                border: `1px solid ${camOff ? 'rgba(255,68,102,0.5)' : 'rgba(0,212,255,0.3)'}`,
+                color: camOff ? '#ff4466' : 'var(--neon-blue)',
+              }}>
               <Icon name={camOff ? "VideoOff" : "Video"} size={22} />
             </button>
           )}
           <button onClick={handleEnd}
             className="w-16 h-16 rounded-full flex items-center justify-center transition-all"
+            title="Завершить звонок"
             style={{ background: 'rgba(255,68,102,0.3)', border: '2px solid #ff4466', color: '#ff4466', boxShadow: '0 0 20px rgba(255,68,102,0.4)' }}>
             <Icon name="PhoneOff" size={26} />
           </button>
@@ -121,6 +130,11 @@ export default function CallsPage() {
   const [callType, setCallType] = useState<"audio" | "video">("video");
 
   const filtered = filter === "missed" ? CALLS.filter(c => c.missed) : CALLS;
+
+  const startCall = (call: typeof CALLS[0], type: "audio" | "video") => {
+    setCallType(type);
+    setActiveCall(call);
+  };
 
   if (activeCall) {
     return <CallScreen call={activeCall} callType={callType} onEnd={() => setActiveCall(null)} />;
@@ -151,8 +165,16 @@ export default function CallsPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        {filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-40 gap-2" style={{ color: 'var(--text-secondary)' }}>
+            <Icon name="PhoneMissed" size={32} style={{ color: 'rgba(255,68,102,0.4)' }} />
+            <p className="text-sm">Пропущенных звонков нет</p>
+          </div>
+        )}
         {filtered.map((call, i) => (
-          <div key={call.id} className="flex items-center gap-3 p-4 border-b glass-card-hover cursor-pointer animate-fade-in"
+          <div key={call.id}
+            onClick={() => startCall(call, call.kind as "audio" | "video")}
+            className="flex items-center gap-3 p-4 border-b glass-card-hover cursor-pointer animate-fade-in"
             style={{ borderColor: 'rgba(0,212,255,0.06)', animationDelay: `${i * 50}ms` }}>
             <div className="relative">
               <div className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
@@ -178,13 +200,19 @@ export default function CallsPage() {
             </div>
             <div className="flex flex-col items-end gap-2">
               <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{call.time}</span>
-              <div className="flex gap-1.5">
-                <button onClick={() => { setCallType('audio'); setActiveCall(call); }}
-                  className="p-1.5 rounded-lg neon-glow-btn">
+              <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
+                <button
+                  onClick={() => startCall(call, 'audio')}
+                  className="p-1.5 rounded-lg neon-glow-btn"
+                  title="Аудиозвонок"
+                >
                   <Icon name="Phone" size={14} />
                 </button>
-                <button onClick={() => { setCallType('video'); setActiveCall(call); }}
-                  className="p-1.5 rounded-lg neon-glow-btn">
+                <button
+                  onClick={() => startCall(call, 'video')}
+                  className="p-1.5 rounded-lg neon-glow-btn"
+                  title="Видеозвонок"
+                >
                   <Icon name="Video" size={14} />
                 </button>
               </div>
