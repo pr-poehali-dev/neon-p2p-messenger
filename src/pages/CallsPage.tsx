@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
+import { useIceServers } from "@/hooks/useIceServers";
 
 const CALLS = [
   { id: 1, name: "Алексей Волков", type: "incoming", kind: "video", time: "14:22", duration: "12:34", avatar: "АВ", online: true, missed: false },
@@ -9,58 +10,133 @@ const CALLS = [
   { id: 5, name: "Команда проекта", type: "outgoing", kind: "video", time: "Вчера", duration: "1:02:45", avatar: "КП", online: true, missed: false },
 ];
 
+function CallScreen({ call, callType, onEnd }: {
+  call: typeof CALLS[0];
+  callType: "audio" | "video";
+  onEnd: () => void;
+}) {
+  const [muted, setMuted] = useState(false);
+  const [camOff, setCamOff] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const iceConfig = useIceServers(true); // relay-only = IP скрыт
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (pcRef.current) pcRef.current.close();
+    };
+  }, []);
+
+  // Инициализируем RTCPeerConnection с TURN-серверами когда они загружены
+  useEffect(() => {
+    if (!iceConfig.loaded) return;
+    if (pcRef.current) pcRef.current.close();
+
+    const pc = new RTCPeerConnection({
+      iceServers: iceConfig.iceServers,
+      iceTransportPolicy: iceConfig.iceTransportPolicy, // "relay" — только через TURN
+    });
+    pcRef.current = pc;
+  }, [iceConfig.loaded, iceConfig.iceServers, iceConfig.iceTransportPolicy]);
+
+  const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+  const handleEnd = () => {
+    if (pcRef.current) pcRef.current.close();
+    onEnd();
+  };
+
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center relative grid-bg" style={{ background: 'var(--bg-dark)', height: '100%' }}>
+      <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+        <div className="w-96 h-96 rounded-full border-2 animate-ping" style={{ borderColor: 'var(--neon-blue)' }} />
+      </div>
+
+      {/* IP Protection badge */}
+      <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full animate-fade-in"
+        style={{
+          background: iceConfig.ipProtected ? 'rgba(0,255,136,0.1)' : 'rgba(255,68,102,0.1)',
+          border: `1px solid ${iceConfig.ipProtected ? 'rgba(0,255,136,0.4)' : 'rgba(255,68,102,0.4)'}`,
+        }}>
+        <Icon
+          name={iceConfig.loaded ? (iceConfig.ipProtected ? "ShieldCheck" : "ShieldAlert") : "Shield"}
+          size={13}
+          style={{ color: iceConfig.ipProtected ? '#00ff88' : '#ff4466' }}
+        />
+        <span className="text-xs font-medium" style={{ color: iceConfig.ipProtected ? '#00ff88' : '#ff4466' }}>
+          {!iceConfig.loaded ? 'Защита...' : iceConfig.ipProtected ? 'IP скрыт' : 'IP не защищён'}
+        </span>
+      </div>
+
+      {/* TURN relay badge */}
+      <div className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full animate-fade-in"
+        style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.2)' }}>
+        <Icon name="Wifi" size={13} style={{ color: 'var(--neon-blue)' }} />
+        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+          {iceConfig.loaded ? 'TURN ретранслятор' : 'Подключение...'}
+        </span>
+      </div>
+
+      <div className="text-center z-10 animate-fade-in">
+        <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 animate-neon-pulse"
+          style={{ background: 'linear-gradient(135deg, rgba(0,212,255,0.3), rgba(0,100,180,0.2))', border: '2px solid rgba(0,212,255,0.5)', fontSize: '2rem', fontWeight: 'bold', color: 'var(--neon-blue)' }}>
+          {call.avatar}
+        </div>
+        <p className="text-2xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{call.name}</p>
+        <p className="text-base font-mono mb-1" style={{ color: 'var(--neon-blue)' }}>{fmt(seconds)}</p>
+        <p className="text-sm mb-8" style={{ color: 'var(--text-secondary)' }}>
+          {callType === 'video' ? 'Видеозвонок' : 'Голосовой звонок'} · Через ретранслятор
+        </p>
+
+        <div className="flex items-center justify-center gap-6">
+          <button onClick={() => setMuted(!muted)}
+            className="w-14 h-14 rounded-full flex items-center justify-center transition-all"
+            style={{ background: muted ? 'rgba(255,68,102,0.2)' : 'rgba(0,212,255,0.1)', border: `1px solid ${muted ? 'rgba(255,68,102,0.5)' : 'rgba(0,212,255,0.3)'}`, color: muted ? '#ff4466' : 'var(--neon-blue)' }}>
+            <Icon name={muted ? "MicOff" : "Mic"} size={22} />
+          </button>
+          {callType === 'video' && (
+            <button onClick={() => setCamOff(!camOff)}
+              className="w-14 h-14 rounded-full flex items-center justify-center transition-all"
+              style={{ background: camOff ? 'rgba(255,68,102,0.2)' : 'rgba(0,212,255,0.1)', border: `1px solid ${camOff ? 'rgba(255,68,102,0.5)' : 'rgba(0,212,255,0.3)'}`, color: camOff ? '#ff4466' : 'var(--neon-blue)' }}>
+              <Icon name={camOff ? "VideoOff" : "Video"} size={22} />
+            </button>
+          )}
+          <button onClick={handleEnd}
+            className="w-16 h-16 rounded-full flex items-center justify-center transition-all"
+            style={{ background: 'rgba(255,68,102,0.3)', border: '2px solid #ff4466', color: '#ff4466', boxShadow: '0 0 20px rgba(255,68,102,0.4)' }}>
+            <Icon name="PhoneOff" size={26} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CallsPage() {
   const [filter, setFilter] = useState<"all" | "missed">("all");
   const [activeCall, setActiveCall] = useState<null | typeof CALLS[0]>(null);
   const [callType, setCallType] = useState<"audio" | "video">("video");
-  const [muted, setMuted] = useState(false);
-  const [camOff, setCamOff] = useState(false);
 
   const filtered = filter === "missed" ? CALLS.filter(c => c.missed) : CALLS;
 
   if (activeCall) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center relative grid-bg" style={{ background: 'var(--bg-dark)', height: '100%' }}>
-        <div className="absolute inset-0 flex items-center justify-center opacity-10">
-          <div className="w-96 h-96 rounded-full border-2 animate-ping" style={{ borderColor: 'var(--neon-blue)' }} />
-        </div>
-        <div className="text-center z-10 animate-fade-in">
-          <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 animate-neon-pulse"
-            style={{ background: 'linear-gradient(135deg, rgba(0,212,255,0.3), rgba(0,100,180,0.2))', border: '2px solid rgba(0,212,255,0.5)', fontSize: '2rem', fontWeight: 'bold', color: 'var(--neon-blue)' }}>
-            {activeCall.avatar}
-          </div>
-          <p className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{activeCall.name}</p>
-          <p className="text-sm mb-8" style={{ color: 'var(--neon-blue)' }}>
-            {callType === 'video' ? '📹 Видеозвонок' : '🎤 Голосовой звонок'} · Исходящий...
-          </p>
-          <div className="flex items-center justify-center gap-6">
-            <button onClick={() => setMuted(!muted)}
-              className="w-14 h-14 rounded-full flex items-center justify-center transition-all"
-              style={{ background: muted ? 'rgba(255,68,102,0.2)' : 'rgba(0,212,255,0.1)', border: `1px solid ${muted ? 'rgba(255,68,102,0.5)' : 'rgba(0,212,255,0.3)'}`, color: muted ? '#ff4466' : 'var(--neon-blue)' }}>
-              <Icon name={muted ? "MicOff" : "Mic"} size={22} />
-            </button>
-            {callType === 'video' && (
-              <button onClick={() => setCamOff(!camOff)}
-                className="w-14 h-14 rounded-full flex items-center justify-center transition-all"
-                style={{ background: camOff ? 'rgba(255,68,102,0.2)' : 'rgba(0,212,255,0.1)', border: `1px solid ${camOff ? 'rgba(255,68,102,0.5)' : 'rgba(0,212,255,0.3)'}`, color: camOff ? '#ff4466' : 'var(--neon-blue)' }}>
-                <Icon name={camOff ? "VideoOff" : "Video"} size={22} />
-              </button>
-            )}
-            <button onClick={() => setActiveCall(null)}
-              className="w-16 h-16 rounded-full flex items-center justify-center transition-all"
-              style={{ background: 'rgba(255,68,102,0.3)', border: '2px solid #ff4466', color: '#ff4466', boxShadow: '0 0 20px rgba(255,68,102,0.4)' }}>
-              <Icon name="PhoneOff" size={26} />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <CallScreen call={activeCall} callType={callType} onEnd={() => setActiveCall(null)} />;
   }
 
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--bg-dark)' }}>
       <div className="p-4 border-b" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-surface)' }}>
-        <h2 className="text-lg font-bold mb-3 neon-text">Звонки</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold neon-text">Звонки</h2>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+            style={{ background: 'rgba(0,255,136,0.08)', border: '1px solid rgba(0,255,136,0.2)' }}>
+            <Icon name="ShieldCheck" size={12} style={{ color: '#00ff88' }} />
+            <span className="text-xs" style={{ color: '#00ff88' }}>IP защита включена</span>
+          </div>
+        </div>
         <div className="flex gap-2">
           {(['all', 'missed'] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
