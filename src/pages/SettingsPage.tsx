@@ -9,13 +9,22 @@ export default function SettingsPage() {
   const [dns, setDns] = useState("8.8.8.8");
   const [textColor, setTextColor] = useState("#00D4FF");
   const [lang, setLang] = useState<"ru" | "en">("ru");
-  const [section, setSection] = useState<string | null>(null);
+
+  // Privacy & IP settings
+  const [hideMyIp, setHideMyIp] = useState(true);
+  const [hideContactsIp, setHideContactsIp] = useState(true);
+  const [hideDevices, setHideDevices] = useState(true);
+  const [hideLastSeen, setHideLastSeen] = useState(false);
+  const [p2pMode, setP2pMode] = useState<"nobody" | "contacts" | "all">("contacts");
 
   const Toggle = ({ val, set }: { val: boolean; set: (v: boolean) => void }) => (
     <button
       onClick={() => set(!val)}
       className="w-12 h-6 rounded-full transition-all flex-shrink-0 relative"
-      style={{ background: val ? 'var(--neon-blue)' : 'rgba(0,212,255,0.15)', boxShadow: val ? '0 0 10px rgba(0,212,255,0.4)' : 'none' }}>
+      style={{
+        background: val ? 'var(--neon-blue)' : 'rgba(0,212,255,0.15)',
+        boxShadow: val ? '0 0 10px rgba(0,212,255,0.4)' : 'none'
+      }}>
       <span className="absolute top-0.5 transition-all rounded-full w-5 h-5 bg-white"
         style={{ left: val ? '26px' : '2px', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
     </button>
@@ -70,6 +79,7 @@ export default function SettingsPage() {
       items: [
         { label: "Изменить пароль", sub: "Обновить пароль аккаунта", el: <Icon name="ChevronRight" size={16} style={{ color: 'var(--text-secondary)' }} /> },
         { label: "Контрольный вопрос", sub: "На случай, если забудете пароль", el: <Icon name="ChevronRight" size={16} style={{ color: 'var(--text-secondary)' }} /> },
+        { label: "Скрыть время последнего визита", sub: "Другие не увидят когда вы были онлайн", el: <Toggle val={hideLastSeen} set={setHideLastSeen} /> },
         { label: "Удалить аккаунт", sub: "Безвозвратное удаление", el: <Icon name="ChevronRight" size={16} style={{ color: '#ff4466' }} /> },
       ]
     },
@@ -82,13 +92,119 @@ export default function SettingsPage() {
       </div>
 
       <div className="p-4 space-y-6">
-        {SECTIONS.map(section => (
-          <div key={section.title}>
+
+        {/* IP & Device Privacy Block */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-2 px-1" style={{ color: 'var(--neon-blue)' }}>
+            Анонимность и IP
+          </p>
+          <div className="glass-card rounded-xl overflow-hidden neon-border">
+
+            {/* Hide my IP */}
+            <div className="flex items-center gap-3 p-4 border-b" style={{ borderColor: 'rgba(0,212,255,0.08)' }}>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: hideMyIp ? 'rgba(0,212,255,0.15)' : 'rgba(255,68,102,0.1)', border: `1px solid ${hideMyIp ? 'rgba(0,212,255,0.3)' : 'rgba(255,68,102,0.3)'}` }}>
+                <Icon name="EyeOff" size={16} style={{ color: hideMyIp ? 'var(--neon-blue)' : '#ff4466' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Скрыть мой IP адрес</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  {hideMyIp ? 'Ваш IP скрыт от собеседников' : 'IP адрес виден участникам звонков'}
+                </p>
+              </div>
+              <Toggle val={hideMyIp} set={setHideMyIp} />
+            </div>
+
+            {/* Hide contacts IP */}
+            <div className="flex items-center gap-3 p-4 border-b" style={{ borderColor: 'rgba(0,212,255,0.08)' }}>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: hideContactsIp ? 'rgba(0,212,255,0.15)' : 'rgba(255,68,102,0.1)', border: `1px solid ${hideContactsIp ? 'rgba(0,212,255,0.3)' : 'rgba(255,68,102,0.3)'}` }}>
+                <Icon name="Shield" size={16} style={{ color: hideContactsIp ? 'var(--neon-blue)' : '#ff4466' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Скрыть IP контактов</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  {hideContactsIp ? 'IP адреса других пользователей скрыты' : 'IP адреса контактов могут быть видны'}
+                </p>
+              </div>
+              <Toggle val={hideContactsIp} set={setHideContactsIp} />
+            </div>
+
+            {/* Hide devices */}
+            <div className="flex items-center gap-3 p-4 border-b" style={{ borderColor: 'rgba(0,212,255,0.08)' }}>
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: hideDevices ? 'rgba(0,212,255,0.15)' : 'rgba(255,68,102,0.1)', border: `1px solid ${hideDevices ? 'rgba(0,212,255,0.3)' : 'rgba(255,68,102,0.3)'}` }}>
+                <Icon name="Smartphone" size={16} style={{ color: hideDevices ? 'var(--neon-blue)' : '#ff4466' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Скрыть устройства входа</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  {hideDevices ? 'Тип устройства не передаётся' : 'Устройство видно в деталях сообщений'}
+                </p>
+              </div>
+              <Toggle val={hideDevices} set={setHideDevices} />
+            </div>
+
+            {/* P2P WebRTC mode */}
+            <div className="p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(0,212,255,0.15)', border: '1px solid rgba(0,212,255,0.3)' }}>
+                  <Icon name="Wifi" size={16} style={{ color: 'var(--neon-blue)' }} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>P2P звонки через ретранслятор</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Кому разрешено прямое P2P соединение</p>
+                </div>
+              </div>
+              <div className="flex gap-2 ml-12">
+                {([
+                  { val: 'nobody', label: 'Никому' },
+                  { val: 'contacts', label: 'Контакты' },
+                  { val: 'all', label: 'Всем' },
+                ] as const).map(opt => (
+                  <button key={opt.val} onClick={() => setP2pMode(opt.val)}
+                    className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    style={p2pMode === opt.val
+                      ? { background: 'var(--neon-blue)', color: '#050c14' }
+                      : { background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.15)', color: 'var(--text-secondary)' }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {p2pMode === 'nobody' && (
+                <p className="text-xs mt-2 ml-12 px-2 py-1.5 rounded-lg"
+                  style={{ background: 'rgba(0,212,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(0,212,255,0.1)' }}>
+                  Все звонки идут через защищённый TURN-сервер. Ваш IP полностью скрыт.
+                </p>
+              )}
+              {p2pMode === 'contacts' && (
+                <p className="text-xs mt-2 ml-12 px-2 py-1.5 rounded-lg"
+                  style={{ background: 'rgba(0,212,255,0.06)', color: 'var(--text-secondary)', border: '1px solid rgba(0,212,255,0.1)' }}>
+                  Прямое соединение только с доверенными контактами.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Info card */}
+          <div className="mt-3 p-3 rounded-xl flex items-start gap-3"
+            style={{ background: 'rgba(0,212,255,0.05)', border: '1px solid rgba(0,212,255,0.12)' }}>
+            <Icon name="Info" size={15} className="flex-shrink-0 mt-0.5" style={{ color: 'var(--neon-blue)' }} />
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              При включённой защите IP все соединения маршрутизируются через ретранслятор (TURN-сервер),
+              что скрывает реальный IP-адрес участников звонков и сообщений. Устройство входа не передаётся в метаданных.
+            </p>
+          </div>
+        </div>
+
+        {SECTIONS.map(sec => (
+          <div key={sec.title}>
             <p className="text-xs font-semibold uppercase tracking-wider mb-2 px-1" style={{ color: 'var(--neon-blue)' }}>
-              {section.title}
+              {sec.title}
             </p>
             <div className="glass-card rounded-xl overflow-hidden">
-              {section.items.map((item, i) => (
+              {sec.items.map((item, i) => (
                 <div key={i} className="flex items-center gap-3 p-4 border-b glass-card-hover"
                   style={{ borderColor: 'rgba(0,212,255,0.06)' }}>
                   <div className="flex-1 min-w-0">
